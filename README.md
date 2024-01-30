@@ -166,4 +166,43 @@ resources they use when you cancel them.
 
 ## Usage
 
-See the `/example` and `/test` folders for examples of usage.
+```dart
+Future<void> someLongOperation(int i) async {
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i');
+}
+
+final f = CancelableFuture(() async {
+  await someLongOperation(1);
+  await someLongOperation(2);
+  await someLongOperation(3);
+  await someLongOperation(4);
+
+  return 'result';
+});
+
+Future<void>.delayed(const Duration(milliseconds: 250), f.cancel);
+
+print(await f.orNull);
+
+print(await f.onCancel(() => 'canceled'));
+
+try {
+  await f;
+} on AsyncCancelException catch (error) {
+  print(error);
+}
+
+```
+
+It'll be taken out:
+
+```text
+operation 1
+operation 2
+null
+canceled
+Async operation canceled
+```
+
+See the `/example` and `/test` folders for other examples of usage.

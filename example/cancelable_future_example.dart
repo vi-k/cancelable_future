@@ -52,7 +52,7 @@ Future<void> cancelableFutureTest() async {
     return 'result';
   });
 
-  await Future<void>.delayed(const Duration(milliseconds: 250), f1.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 250), f1.cancel);
 
   try {
     print(await f1);
@@ -132,7 +132,7 @@ Future<void> cancelableFutureTest() async {
     }
   });
 
-  await Future<void>.delayed(const Duration(milliseconds: 250), f3.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 250), f3.cancel);
 
   try {
     print(await f3);
@@ -172,7 +172,7 @@ Future<void> cancelableFutureTest() async {
     }
   });
 
-  await Future<void>.delayed(const Duration(milliseconds: 250), f4.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 250), f4.cancel);
 
   try {
     print(await f4);
