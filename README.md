@@ -186,6 +186,11 @@ Future<void> someLongOperation() async {
   await someOperation(4);
 }
 
+final f = CancelableFuture(() async {
+  await someLongOperation();
+  return 'result';
+});
+
 Future<void>.delayed(const Duration(milliseconds: 650), f.cancel);
 
 print(await f.orNull);
