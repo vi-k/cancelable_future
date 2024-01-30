@@ -9,9 +9,23 @@ import '../test/gc.dart';
 // const printStackTrace = true;
 const printStackTrace = false;
 
-Future<void> someLongOperation(int i) async {
+Future<void> someOperation(int i) async {
+  print('operation $i 0%');
   await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i');
+  print('operation $i 25%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 50%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 75%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 100%');
+}
+
+Future<void> someLongOperation() async {
+  await someOperation(1);
+  await someOperation(2);
+  await someOperation(3);
+  await someOperation(4);
 }
 
 final class Resource {
@@ -37,22 +51,25 @@ Future<void> cancelableFutureTest() async {
   // Example 1:
   // Cancel by timer.
   //
-  // operation 1
-  // operation 2
+  // operation 1 0%
+  // operation 1 25%
+  // operation 1 50%
+  // operation 1 75%
+  // operation 1 100%
+  // operation 2 0%
+  // operation 2 25%
+  // operation 2 50%
   // canceled: AsyncCancelException
   // null
   // no result
   print('\nExample 1. Cancel by timer');
   final f1 = CancelableFuture(() async {
-    await someLongOperation(1);
-    await someLongOperation(2);
-    await someLongOperation(3);
-    await someLongOperation(4);
+    await someLongOperation();
 
     return 'result';
   });
 
-  Future<void>.delayed(const Duration(milliseconds: 250), f1.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 650), f1.cancel);
 
   try {
     print(await f1);
@@ -68,25 +85,24 @@ Future<void> cancelableFutureTest() async {
   // Example 2:
   // Cancel by timeout.
   //
-  // operation 1
-  // operation 2
+  // operation 1 0%
+  // operation 1 25%
+  // operation 1 50%
+  // operation 1 75%
   // canceled: AsyncCancelByTimeoutException
   // canceled: AsyncCancelException
   // null
   // no result
   print('\nExample 2. Cancel by timeout');
   final f2 = CancelableFuture(() async {
-    await someLongOperation(1);
-    await someLongOperation(2);
-    await someLongOperation(3);
-    await someLongOperation(4);
+    await someLongOperation();
 
     return 'result';
   });
 
   try {
     await f2.timeout(
-      const Duration(milliseconds: 250),
+      const Duration(milliseconds: 350),
       cancelOnTimeout: true,
     );
   } on AsyncCancelException catch (error, stackTrace) {
@@ -112,18 +128,15 @@ Future<void> cancelableFutureTest() async {
   // disposed.
   //
   // create resource @...
-  // operation 1
-  // operation 2
+  // operation 1 0%
+  // operation 1 25%
   // canceled: AsyncCancelException
   print('\nExample 3. Problem: the finally block is not executed,'
       ' the resource is not being disposed.');
   final f3 = CancelableFuture(() async {
     final resource = await Resource.getResource();
     try {
-      await someLongOperation(1);
-      await someLongOperation(2);
-      await someLongOperation(3);
-      await someLongOperation(4);
+      await someLongOperation();
 
       return 'result';
     } finally {
@@ -132,7 +145,7 @@ Future<void> cancelableFutureTest() async {
     }
   });
 
-  Future<void>.delayed(const Duration(milliseconds: 250), f3.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 150), f3.cancel);
 
   try {
     print(await f3);
@@ -147,8 +160,8 @@ Future<void> cancelableFutureTest() async {
   // Solution: resource disposed with `Finalizer`.
   //
   // create resource @...
-  // operation 1
-  // operation 2
+  // operation 1 0%
+  // operation 1 25%
   // canceled: AsyncCancelException
   // finalize resource @...
   // dispose resource @...
@@ -160,10 +173,7 @@ Future<void> cancelableFutureTest() async {
     );
 
     try {
-      await someLongOperation(1);
-      await someLongOperation(2);
-      await someLongOperation(3);
-      await someLongOperation(4);
+      await someLongOperation();
 
       return 'result';
     } finally {
@@ -172,7 +182,7 @@ Future<void> cancelableFutureTest() async {
     }
   });
 
-  Future<void>.delayed(const Duration(milliseconds: 250), f4.cancel);
+  Future<void>.delayed(const Duration(milliseconds: 150), f4.cancel);
 
   try {
     print(await f4);

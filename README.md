@@ -167,24 +167,28 @@ resources they use when you cancel them.
 ## Usage
 
 ```dart
-Future<void> someLongOperation(int i) async {
+Future<void> someOperation(int i) async {
+  print('operation $i 0%');
   await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i');
+  print('operation $i 25%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 50%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 75%');
+  await Future<void>.delayed(const Duration(milliseconds: 100));
+  print('operation $i 100%');
 }
 
-final f = CancelableFuture(() async {
-  await someLongOperation(1);
-  await someLongOperation(2);
-  await someLongOperation(3);
-  await someLongOperation(4);
+Future<void> someLongOperation() async {
+  await someOperation(1);
+  await someOperation(2);
+  await someOperation(3);
+  await someOperation(4);
+}
 
-  return 'result';
-});
-
-Future<void>.delayed(const Duration(milliseconds: 250), f.cancel);
+Future<void>.delayed(const Duration(milliseconds: 650), f.cancel);
 
 print(await f.orNull);
-
 print(await f.onCancel(() => 'canceled'));
 
 try {
@@ -198,8 +202,14 @@ try {
 It'll be taken out:
 
 ```text
-operation 1
-operation 2
+operation 1 0%
+operation 1 25%
+operation 1 50%
+operation 1 75%
+operation 1 100%
+operation 2 0%
+operation 2 25%
+operation 2 50%
 null
 canceled
 Async operation canceled
