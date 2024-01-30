@@ -103,7 +103,7 @@ void main() {
       finalizerAttach(f);
       finalizerAttach(f.$future);
 
-      // Отменить фьючу во время выполнения.
+      // Cancel Future at runtime.
       Future<void>.delayed(
         operationDuration * 2 + operationDuration ~/ 2,
         f.cancel,
@@ -119,10 +119,10 @@ void main() {
         print('catch cancelation');
       }
       await expectLater(f, throwsA(isA<AsyncCancelException>()));
+      // TODO(vi-k): It's not working.
       // await expectLater(
       //   Future(() async => await f),
       //   throwsA(isA<AsyncCancelException>()),
-      //   skip: "It's not working.", // TODO
       // );
 
       expect(f.isCompleted, isFalse);
@@ -154,7 +154,7 @@ void main() {
       await Future.wait([f, f]);
       await expectLater(f, completion('abc'));
 
-      // Попытаться отменить фьючу после её завершения и возвращения результата.
+      // Attempt to cancel Future after completing it and returning a result.
       f.cancel();
 
       await expectLater(
@@ -184,8 +184,8 @@ void main() {
       finalizerAttach(f);
       finalizerAttach(f.$future);
 
-      // Дать отработать фьюче, не вызывая await/then (т.е. не забирая
-      // результат). Затем попытаться отменить.
+      // Let Future work out without calling await/then (i.e. without taking
+      // the result). Then try to cancel.
       await Future<void>.delayed(
         operationDuration * operationsCount + operationDuration,
       );
