@@ -60,10 +60,9 @@ Especially when we are talking about a single result, not a stream of results.
 For this reason `CancelableOperation` appears. "An asynchronous operation that
 can be canceled" - as it is written in the [documentation](https://pub.dev/documentation/async/latest/async/CancelableOperation-class.html). `CancelableOperation` is not named `CancelableFuture` as
 a matter of principle, so as not to confuse the developer. `Future` cannot be
-canceled, while some asynchronous operation as if it could.
-
-But in fact no asynchronous operation can be cancelable unless it is
-implemented within itself.
+canceled, while some asynchronous operation as if it could. But in fact no
+asynchronous operation can be cancelable unless it is implemented within
+itself.
 
 ```dart
 Future<SomeClass> f() async {
@@ -75,13 +74,13 @@ Future<SomeClass> f() async {
 ```
 
 You can choose not to wait for code execution to complete and return a value
-(such as `null`) or throw an exception before the code executes, giving the
-illusion of canceling an asynchronous operation. But the specified code will
-continue working although nobody will need its result anymore. It will still
-continue to go to the network, parse JSON, save values to the storage and
-create other side-effects. And the developer will be surprised by unexpected
-behavior of his program or the fact that the application slows down for some
-reason.
+(such as `null`) or throw an exception before code execution, for example by
+adding `timeout`, thus creating the illusion of canceling an asynchronous
+operation. But the specified code will continue working although nobody will
+need its result anymore. It will still continue to go to the network, parse
+JSON, save values to the storage and create other side-effects. And the
+developer will be surprised by unexpected behavior of his program or the fact
+that the application slows down for some reason.
 
 The important conclusion from all of this is that `Future` is atomic and cannot
 be canceled from the outside. This is a fundamental architectural decision of
@@ -99,7 +98,7 @@ CancelableFuture<SomeClass> f() async cancelable {
   final SomeResource resource1 = ....;
   late final SomeResource resource2;
 
-  await someOperation;
+  await safeAsyncCodeWhereNoExceptionsAreExpected;
 
   try {
     resource2 = ....;
@@ -144,23 +143,15 @@ can "throw" an exception by calling the `onError` handler. But since we have
 nowhere to get the ready value of the unknown class `T` for the generic
 `Future<T>`, we only have to "throw" the exception `AsyncCancelException`. As
 a result, we can cancel `await` at any level of asynchronous code nesting, but
-the original `Future` itself will terminate with an exception when canceled.
-If an exception is not what you need, you can use the `orNull` getter or the
-`onCancel` method.
+the original `CancelableFuture` itself will terminate with an exception when
+canceled. If an exception is not what you need, you can use the `orNull` getter
+or the `onCancel` method.
 
-Since this is a hack in the truest sense of the word, no `try/catch/finally` in
-your `async` code will work in case of cancel. The variables created inside the
-scope of the method will be released by garbage collector, but the resources
-created outside will not be disposed of, because the `finally` block will not
-be called. You can still recycle resources, but only by creating a wrapper over
-the resource class and freeing it with `Finalizer`. Use the
-`CancelableResource` class for this purpose.
-
-Even if you ever decide to use this package in your working project (**which I
-do not agree to**), remember that you can only use your own `async` methods in
-your `async` code. External `async` methods that you do not control will not
-know anything about your experiments and will not be able to release the
-resources they use when you cancel them.
+Even if you ever decide to use this package in your working project (**which
+I don't agree with, as it breaks `await` logic**), remember that you can only
+use your own `async` methods in the your `async` code. Third-party `async`
+methods that you do not control will not know anything about your experiments
+and will not be able to free the the resources they use when you cancel them.
 
 **Use this package for academic purposes only!**
 
@@ -168,56 +159,101 @@ resources they use when you cancel them.
 
 ```dart
 Future<void> someOperation(int i) async {
-  print('operation $i 0%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 25%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 50%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 75%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 100%');
+  try {
+    print('operation $i 0%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 25%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 50%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 75%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 100%');
+  } finally {
+    print('operation $i finally');
+  }
 }
 
 Future<void> someLongOperation() async {
-  await someOperation(1);
-  await someOperation(2);
-  await someOperation(3);
-  await someOperation(4);
+  try {
+    print('operation 1');
+    await someOperation(1);
+
+    print('operation 2');
+    await someOperation(2);
+
+    print('operation 3');
+    await someOperation(3);
+
+    print('operation 4');
+    await someOperation(4);
+  } finally {
+    print('operations finally');
+  }
 }
 
 final f = CancelableFuture(() async {
-  await someLongOperation();
-  return 'result';
+  try {
+    await someLongOperation();
+
+    return 'result';
+  } finally {
+    print('main finally');
+  }
 });
 
-Future<void>.delayed(const Duration(milliseconds: 650), f.cancel);
+Future<void>.delayed(
+  const Duration(milliseconds: 650),
+  () {
+    print('--- cancel ---');
+    f1.cancel();
+  },
+);
 
-print(await f.orNull);
-print(await f.onCancel(() => 'canceled'));
-
+print('result: ${await f1.orNull}');
+print('result: ${await f1.onCancel(() => 'canceled')}');
 try {
-  await f;
-} on AsyncCancelException catch (error) {
-  print(error);
+  print(await f1);
+} on AsyncCancelException catch (error, stackTrace) {
+  print('exception: [${error.runtimeType}] $error');
+  if (printStackTrace) {
+    print(Chain.forTrace(stackTrace).terse);
+  }
 }
-
 ```
 
 It'll be taken out:
 
 ```text
+operation 1
 operation 1 0%
 operation 1 25%
 operation 1 50%
 operation 1 75%
+--- cancel ---
 operation 1 100%
-operation 2 0%
-operation 2 25%
-operation 2 50%
-null
-canceled
-Async operation canceled
+operation 1 finally
+operation 2
+operation 2 0%      <- nearest breakpoint
+operation 2 finally
+operations finally
+main finally
+result: null
+result: canceled
+exception: [AsyncCancelException] Async operation canceled
 ```
+
+As you can see, `cancel` doesn't work immediately. Unlike `yield`, which can be
+interrupted both before and after calculating values, `await` can be
+interrupted only before the code enters the event loop. But not everything that
+starts with `await` really gets there. The function tries to execute
+synchronously as much as possible. `Future.value` and `Future.sync` return the
+result synchronously. `Future.microtask` is executed outside the event loop.
+Therefore, to cancel the code after `cancel`, we have to find the `await` where
+we can interrupt the code execution.
 
 See the `/example` and `/test` folders for other examples of usage.

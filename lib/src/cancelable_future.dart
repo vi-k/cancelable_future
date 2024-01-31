@@ -22,6 +22,10 @@ base class AsyncCancelException implements Exception {
   String toString() => 'Async operation canceled';
 }
 
+final class _InnerAsyncCancelException extends AsyncCancelException {
+  const _InnerAsyncCancelException();
+}
+
 final class AsyncCancelByTimeoutException extends AsyncCancelException {
   final Duration timeout;
 
@@ -34,47 +38,55 @@ final class AsyncCancelByTimeoutException extends AsyncCancelException {
 final class CancelableFuture<T> implements Future<T> {
   final Future<T> Function() computation;
   late final Future<T> _future;
-  var _isCanceled = false;
+  AsyncCancelException? _canceledToken;
   late final StackTrace _canceledStackTrace;
   final _onErrorCallbacks = Queue<Function>();
-  final _timers = <Timer>{};
+  final _timers = <Timer, void Function()>{};
 
   CancelableFuture(this.computation) {
     final zoneSpecification = ZoneSpecification(
       createTimer: (self, parent, zone, duration, f) {
         late final Timer timer;
 
-        timer = parent.createTimer(self, duration, () {
+        if (isCanceled) {
+          _log('createTimer');
+          throw const _InnerAsyncCancelException();
+        }
+
+        _log('createTimer');
+        timer = parent.createTimer(zone, duration, () {
           _timers.remove(timer);
           f();
         });
 
-        _timers.add(timer);
+        _timers[timer] = f;
 
         return timer;
       },
       createPeriodicTimer: (self, parent, zone, period, f) {
-        final timer = parent.createPeriodicTimer(self, period, f);
-        _timers.add(timer);
+        _log('createPeriodicTimer');
+        final timer = parent.createPeriodicTimer(zone, period, f);
+        _timers[timer] = () => f(timer);
 
         return timer;
       },
     );
 
-    runZoned(
-      zoneSpecification: zoneSpecification,
-      () {
-        _future = computation();
-      },
-    );
+    runZonedGuarded(zoneSpecification: zoneSpecification, () {
+      _future = computation();
+    }, (error, stack) {
+      if (error is! _InnerAsyncCancelException) {
+        Error.throwWithStackTrace(error, stack);
+      }
+    });
   }
 
   @visibleForTesting
   Future<T> get $future => _future;
 
-  bool get isCanceled => _isCanceled;
+  bool get isCanceled => _canceledToken != null;
 
-  bool get isCompleted => isDone && !_isCanceled;
+  bool get isCompleted => isDone && !isCanceled;
 
   bool get isDone => _timers.isEmpty;
 
@@ -86,13 +98,17 @@ final class CancelableFuture<T> implements Future<T> {
     }
 
     if (!isDone) {
-      _log(() => 'cancel() timers=${_timers.length}');
+      _log(() => 'cancel($token) timers=${_timers.length}');
 
-      _isCanceled = true;
+      _canceledToken = token;
       final stackTrace = _canceledStackTrace = StackTrace.current;
 
-      for (final timer in _timers) {
+      for (final MapEntry(key: timer, value: f) in _timers.entries.toList()) {
+        final isActive = timer.isActive;
         timer.cancel();
+        if (isActive) {
+          f();
+        }
       }
       _timers.clear();
 
@@ -107,7 +123,7 @@ final class CancelableFuture<T> implements Future<T> {
     AsyncCancelException token = const AsyncCancelException(),
     required StackTrace stackTrace,
   }) {
-    _log(() => '_breakFuture() callbacks=${_onErrorCallbacks.length}');
+    _log(() => '_breakFuture($token) callbacks=${_onErrorCallbacks.length}');
 
     while (_onErrorCallbacks.isNotEmpty) {
       final onError = _onErrorCallbacks.removeFirst();
@@ -126,8 +142,11 @@ final class CancelableFuture<T> implements Future<T> {
       _onErrorCallbacks.add(onError);
     }
 
-    if (_isCanceled) {
-      _breakFuture(stackTrace: _canceledStackTrace);
+    if (isCanceled) {
+      _breakFuture(
+        token: _canceledToken!,
+        stackTrace: _canceledStackTrace,
+      );
       return Completer<T>().future.then(onValue); // never completer
     }
 
@@ -150,28 +169,49 @@ final class CancelableFuture<T> implements Future<T> {
       return _future.timeout(timeLimit, onTimeout: onTimeout);
     }
 
-    assert(
-      onTimeout == null,
-      'When cancelOnTimeout is set to true, onTimeout must be null',
-    );
-
     final completer = Completer<T>();
+    void Function()? completerCallback;
+
     final timer = Timer(
       timeLimit,
       () {
-        cancel(token: AsyncCancelByTimeoutException(timeLimit));
+        _log('timeout');
+
+        final token = AsyncCancelByTimeoutException(timeLimit);
+
+        if (onTimeout != null) {
+          try {
+            final result = onTimeout();
+            completerCallback = () => completer.complete(result);
+          } on Object catch (e, s) {
+            completerCallback = () => completer.completeError(e, s);
+          }
+        } else {
+          completerCallback =
+              () => completer.completeError(token, StackTrace.current);
+        }
+
+        cancel(token: token);
       },
     );
 
     then<void>(
       (value) {
         timer.cancel();
-        completer.complete(value);
+        if (completerCallback != null) {
+          completerCallback!();
+        } else {
+          completer.complete(value);
+        }
       },
       // ignore: avoid_types_on_closure_parameters
       onError: (Object error, StackTrace stackTrace) {
         timer.cancel();
-        completer.completeError(error, stackTrace);
+        if (completerCallback != null) {
+          completerCallback!();
+        } else {
+          completer.completeError(error, stackTrace);
+        }
       },
     );
 

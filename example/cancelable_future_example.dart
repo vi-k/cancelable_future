@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:cancelable_future/cancelable_future.dart';
-import 'package:cancelable_future/src/cancelable_resource.dart';
 import 'package:stack_trace/stack_trace.dart';
 
 import '../test/gc.dart';
@@ -9,187 +8,210 @@ import '../test/gc.dart';
 // const printStackTrace = true;
 const printStackTrace = false;
 
+Future<void> main() async {
+  await Chain.capture(cancelableFutureTest);
+}
+
 Future<void> someOperation(int i) async {
-  print('operation $i 0%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 25%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 50%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 75%');
-  await Future<void>.delayed(const Duration(milliseconds: 100));
-  print('operation $i 100%');
+  try {
+    print('operation $i 0%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 25%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 50%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 75%');
+
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    print('operation $i 100%');
+  } finally {
+    print('operation $i finally');
+  }
 }
 
 Future<void> someLongOperation() async {
-  await someOperation(1);
-  await someOperation(2);
-  await someOperation(3);
-  await someOperation(4);
+  try {
+    print('operation 1');
+    await someOperation(1);
+
+    print('operation 2');
+    await someOperation(2);
+
+    print('operation 3');
+    await someOperation(3);
+
+    print('operation 4');
+    await someOperation(4);
+  } finally {
+    print('operations finally');
+  }
 }
 
 final class Resource {
-  Resource._();
-
-  static Future<Resource> getResource() async {
-    final resource = Resource._();
-    print('create resource @${resource.hashCode}');
-
-    return resource;
+  Resource() {
+    print('create resource');
   }
 
   void dispose() {
-    print('dispose resource @$hashCode');
+    print('dispose resource');
   }
-}
-
-Future<void> main() async {
-  await Chain.capture(cancelableFutureTest);
 }
 
 Future<void> cancelableFutureTest() async {
   // Example 1:
   // Cancel by timer.
   //
+  // operation 1
   // operation 1 0%
   // operation 1 25%
   // operation 1 50%
   // operation 1 75%
   // operation 1 100%
+  // operation 1 finally
+  // operation 2
   // operation 2 0%
   // operation 2 25%
   // operation 2 50%
-  // canceled: AsyncCancelException
-  // null
-  // no result
+  // --- cancel ---
+  // operation 2 75%     <- nearest Future
+  // operation 2 finally
+  // operations finally
+  // main finally
+  // result: null
+  // result: canceled
+  // exception: [AsyncCancelException] Async operation canceled
   print('\nExample 1. Cancel by timer');
   final f1 = CancelableFuture(() async {
-    await someLongOperation();
+    try {
+      await someLongOperation();
 
-    return 'result';
+      return 'result';
+    } finally {
+      print('main finally');
+    }
   });
 
-  Future<void>.delayed(const Duration(milliseconds: 650), f1.cancel);
+  Future<void>.delayed(
+    const Duration(milliseconds: 650),
+    () {
+      print('--- cancel ---');
+      f1.cancel();
+    },
+  );
 
+  print('result: ${await f1.orNull}');
+  print('result: ${await f1.onCancel(() => 'canceled')}');
   try {
     print(await f1);
   } on AsyncCancelException catch (error, stackTrace) {
-    print('canceled: ${error.runtimeType}');
+    print('exception: [${error.runtimeType}] $error');
     if (printStackTrace) {
-      print('\n${Chain.forTrace(stackTrace).terse}');
+      print(Chain.forTrace(stackTrace).terse);
     }
   }
-  print(await f1.orNull);
-  print(await f1.onCancel(() => 'no result'));
 
   // Example 2:
   // Cancel by timeout.
   //
+  // operation 1
   // operation 1 0%
   // operation 1 25%
   // operation 1 50%
   // operation 1 75%
-  // canceled: AsyncCancelByTimeoutException
-  // canceled: AsyncCancelException
-  // null
-  // no result
+  // --- timeout ---
+  // operation 1 100%
+  // operation 1 finally
+  // operation 2         <- function - don't stop, do the synchronized part
+  // operation 2 0%      <- nearest Future
+  // operation 2 finally
+  // operations finally
+  // main finally
+  // result: timeout
+  // result: null
+  // result: canceled
+  // exception: [AsyncCancelByTimeoutException] Async operation canceled by timeout: 0:00:00.350000
   print('\nExample 2. Cancel by timeout');
   final f2 = CancelableFuture(() async {
-    await someLongOperation();
+    try {
+      await someLongOperation();
 
-    return 'result';
+      return 'result';
+    } finally {
+      print('main finally');
+    }
   });
 
-  try {
-    await f2.timeout(
-      const Duration(milliseconds: 350),
-      cancelOnTimeout: true,
-    );
-  } on AsyncCancelException catch (error, stackTrace) {
-    print('canceled: ${error.runtimeType}');
-    if (printStackTrace) {
-      print('\n${Chain.forTrace(stackTrace).terse}');
-    }
-  }
-
+  final f2t = f2.timeout(
+    const Duration(milliseconds: 350),
+    cancelOnTimeout: true,
+    onTimeout: () {
+      print('--- timeout ---');
+      return 'timeout';
+    },
+  );
+  print('result: ${await f2t}');
+  print('result: ${await f2.orNull}');
+  print('result: ${await f2.onCancel(() => 'canceled')}');
   try {
     print(await f2);
   } on AsyncCancelException catch (error, stackTrace) {
-    print('canceled: ${error.runtimeType}');
+    print('exception: [${error.runtimeType}] $error');
     if (printStackTrace) {
-      print('\n${Chain.forTrace(stackTrace).terse}');
+      print(Chain.forTrace(stackTrace).terse);
     }
   }
-  print(await f2.orNull);
-  print(await f2.onCancel(() => 'no result'));
 
   // Example 3:
-  // Problem: the finally block is not executed, the resource is not being
-  // disposed.
+  // Problem: If the code is not prepared to be canceled, resources may leak
+  // out.
   //
-  // create resource @...
-  // operation 1 0%
-  // operation 1 25%
-  // canceled: AsyncCancelException
-  print('\nExample 3. Problem: the finally block is not executed,'
-      ' the resource is not being disposed.');
-  final f3 = CancelableFuture(() async {
-    final resource = await Resource.getResource();
+  // create resource
+  // safe async code without exceptions
+  // --- cancel ---
+  // exception: [AsyncCancelException] Async operation canceled
+  print('\nExample 3. If the code is not prepared to be canceled,'
+      ' resources may leak out');
+
+  Future<void> safeAsyncCodeWhereNoExceptionsAreExpected() async {
+    print('safe async code without exceptions');
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+
+  Future<void> fairlyCommonThirdPartyCode() async {
+    final resource = Resource();
+
+    await safeAsyncCodeWhereNoExceptionsAreExpected();
+
     try {
-      await someLongOperation();
-
-      return 'result';
+      print('code that may have exceptions');
     } finally {
-      print('finally');
       resource.dispose();
-    }
-  });
-
-  Future<void>.delayed(const Duration(milliseconds: 150), f3.cancel);
-
-  try {
-    print(await f3);
-  } on AsyncCancelException catch (error, stackTrace) {
-    print('canceled: ${error.runtimeType}');
-    if (printStackTrace) {
-      print('\n${Chain.forTrace(stackTrace).terse}');
     }
   }
 
-  // Example 4:
-  // Solution: resource disposed with `Finalizer`.
-  //
-  // create resource @...
-  // operation 1 0%
-  // operation 1 25%
-  // canceled: AsyncCancelException
-  // finalize resource @...
-  // dispose resource @...
-  print('\nExample 4. Solution: resource disposed with `Finalizer`');
-  final f4 = CancelableFuture(() async {
-    final resource = await CancelableResource.create(
-      Resource.getResource,
-      onDispose: (value) => value.dispose(),
-    );
-
-    try {
-      await someLongOperation();
-
-      return 'result';
-    } finally {
-      print('finally');
-      await resource.dispose();
-    }
+  final f3 = CancelableFuture(() async {
+    await fairlyCommonThirdPartyCode();
+    return 'result';
   });
 
-  Future<void>.delayed(const Duration(milliseconds: 150), f4.cancel);
+  Future<void>.delayed(
+    const Duration(milliseconds: 50),
+    () {
+      print('--- cancel ---');
+      f3.cancel();
+    },
+  );
 
   try {
-    print(await f4);
+    await f3;
   } on AsyncCancelException catch (error, stackTrace) {
-    print('canceled: ${error.runtimeType}');
+    print('exception: [${error.runtimeType}] $error');
     if (printStackTrace) {
-      print('\n${Chain.forTrace(stackTrace).terse}');
+      print(Chain.forTrace(stackTrace).terse);
     }
   }
 
