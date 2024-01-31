@@ -9,8 +9,8 @@ Yes, it can be done. But you don't have to. Read below.
 
 ## Background
 
-There is a frequent task: to cancel `Future`'s execution. But `Future`'s
-architecture assumes atomicity of the operation and does not assume the ability
+There is a frequent task: to cancel execution of `Future`. But
+architecture of `Future` assumes atomicity of the operation and does not assume the ability
 to cancel code execution from outside. If a developer writes
 
 ```dart
@@ -20,19 +20,19 @@ Future<SomeClass> someMethod() async {
 ```
 
 he must be sure that this code will not be arbitrarily interrupted anywhere.
-If a developer writes:
+If a developer writes
 
 ```dart
 await future;
 ```
 
 he must be sure that future will either return the result or throw an exception.
-This is architecture of the `Future`. It may not be the best option. Maybe it
-would be better if the cancel method was added to architecture of the `Future`
-right away. But to add the ability to cancel `Future` now is to introduce chaos
-into all the existing code on Dart. In order to add cancel to the code, the
-developer must agree to it. As if signing a contract. And that possibility
-exists. It's an asynchronous `Stream`'s generator `async*`:
+This is architecture of `Future`. It may not be the best option. Maybe it would
+be better if the cancel method was added to architecture of `Future` right away.
+But to add the ability to cancel `Future` now is to introduce chaos into all the
+existing code on Dart. In order to add cancel to the code, the developer must
+agree to it. As if signing a contract. And that possibility exists. It's an
+asynchronous `Stream`'s generator `async*`:
 
 ```dart
 Stream<SomeClass> f() async* {
