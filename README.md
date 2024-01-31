@@ -151,7 +151,7 @@ Even if you ever decide to use this package in your working project (**which
 I don't agree with, as it breaks `await` logic**), remember that you can only
 use your own `async` methods in the your `async` code. Third-party `async`
 methods that you do not control will not know anything about your experiments
-and will not be able to free the the resources they use when you cancel them.
+and will not be able to free the resources they use when you cancel them.
 
 **Use this package for academic purposes only!**
 
