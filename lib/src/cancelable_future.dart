@@ -49,7 +49,6 @@ final class CancelableFuture<T> implements Future<T> {
         late final Timer timer;
 
         if (isCanceled) {
-          _log('createTimer');
           throw const _InnerAsyncCancelException();
         }
 
