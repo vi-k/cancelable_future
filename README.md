@@ -48,8 +48,6 @@ Stream<SomeClass> f() async* {
 }
 ```
 
-И даже если операция отменится до `yield` someFuture исполнит свой код до конца
-
 This code can be externally terminated on any `yield` after calculating its
 value. (`await someFuture` will still be an atomic indivisible operation. And
 even if the operation is canceled before `yield` this `someFuture` will execute
