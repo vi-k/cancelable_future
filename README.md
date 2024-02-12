@@ -48,21 +48,50 @@ Stream<SomeClass> f() async* {
 }
 ```
 
-This code can be externally terminated on any `yield`. Before the value is
-computed or after the value is computed. (But `await someFuture` will still be
-an atomic indivisible operation.) The code will cancel and not proceed to the
-next step. There will be no exception thrown. But the `finally` block will be
-executed.
+И даже если операция отменится до `yield` someFuture исполнит свой код до конца
+
+This code can be externally terminated on any `yield` after calculating its
+value. (`await someFuture` will still be an atomic indivisible operation. And
+even if the operation is canceled before `yield` this `someFuture` will execute
+its code to completion) The code will cancel and not proceed to the next step.
+There will be no exception thrown. But the `finally` block will be executed.
+Under the hood, it looks like this:
+
+```dart
+Stream<SomeClass> f() async* {
+  try {
+    yield someResult;
+    // 1. value = someResult
+    // 2. if (canceled) return
+    // 3. send value
+    ...
+    yield await someFuture;
+    // 1. value = await someFuture
+    // 2. if (canceled) return
+    // 3. send value
+    ...
+    yield* someStream;
+    // 1. subscription = listen someStream
+    // 2. if (canceled)
+    //      cancel subscription
+    //      return
+    // 3. wait for someStream to complete
+  } finally {
+    ..
+  }
+}
+```
 
 So Dart has everything you need to cancel asynchronous operations. But it so
 happens that `Future` is much more clear and convenient to use than `Stream`.
 Especially when we are talking about a single result, not a stream of results.
 For this reason `CancelableOperation` appears. "An asynchronous operation that
-can be canceled" - as it is written in the [documentation](https://pub.dev/documentation/async/latest/async/CancelableOperation-class.html). `CancelableOperation` is not named `CancelableFuture` as
-a matter of principle, so as not to confuse the developer. `Future` cannot be
-canceled, while some asynchronous operation as if it could. But in fact no
-asynchronous operation can be cancelable unless it is implemented within
-itself.
+can be canceled" - as it is written in the
+[documentation](https://pub.dev/documentation/async/latest/async/CancelableOperation-class.html).
+`CancelableOperation` is not named `CancelableFuture` as a matter of principle,
+so as not to confuse the developer. `Future` cannot be canceled, while some
+asynchronous operation as if it could. But in fact no asynchronous operation
+can be cancelable unless it is implemented within itself.
 
 ```dart
 Future<SomeClass> f() async {

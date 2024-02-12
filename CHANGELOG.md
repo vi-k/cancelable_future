@@ -8,3 +8,7 @@
 
 - The previous version had a limitation: the `finally` block was not executed
   after canceling. Fix it.
+
+## 0.2.1
+
+- Fix README.md.
