@@ -132,7 +132,8 @@ Future<void> cancelableFutureTest() async {
   // result: timeout
   // result: null
   // result: canceled
-  // exception: [AsyncCancelByTimeoutException] Async operation canceled by timeout: 0:00:00.350000
+  // exception: [AsyncCancelByTimeoutException]
+  //   Async operation canceled by timeout: 0:00:00.350000
   print('\nExample 2. Cancel by timeout');
   final f2 = CancelableFuture(() async {
     try {
