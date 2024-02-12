@@ -89,9 +89,9 @@ final class CancelableFuture<T> implements Future<T> {
 
   bool get isDone => _timers.isEmpty;
 
-  void cancel({
+  Future<void> cancel({
     AsyncCancelException token = const AsyncCancelException(),
-  }) {
+  }) async {
     if (isDone) {
       return;
     }
@@ -111,22 +111,22 @@ final class CancelableFuture<T> implements Future<T> {
       }
       _timers.clear();
 
-      _breakFuture(
+      await _breakFuture(
         token: token,
         stackTrace: stackTrace,
       );
     }
   }
 
-  void _breakFuture({
+  Future<void> _breakFuture({
     AsyncCancelException token = const AsyncCancelException(),
     required StackTrace stackTrace,
-  }) {
+  }) async {
     _log(() => '_breakFuture($token) callbacks=${_onErrorCallbacks.length}');
 
     while (_onErrorCallbacks.isNotEmpty) {
       final onError = _onErrorCallbacks.removeFirst();
-      onError(token, stackTrace);
+      await onError(token, stackTrace);
     }
   }
 
@@ -134,7 +134,7 @@ final class CancelableFuture<T> implements Future<T> {
   Future<R> then<R>(
     FutureOr<R> Function(T value) onValue, {
     Function? onError,
-  }) {
+  }) async {
     _log('then');
 
     if (onError != null) {
@@ -142,7 +142,7 @@ final class CancelableFuture<T> implements Future<T> {
     }
 
     if (isCanceled) {
-      _breakFuture(
+      await _breakFuture(
         token: _canceledToken!,
         stackTrace: _canceledStackTrace,
       );

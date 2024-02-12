@@ -233,11 +233,12 @@ final f = CancelableFuture(() async {
   }
 });
 
-Future<void>.delayed(
+final cancelfuture = Future<void>.delayed(
   const Duration(milliseconds: 650),
-  () {
+  () async {
     print('--- cancel ---');
-    f1.cancel();
+    await f1.cancel();
+    print('--- really canceled ---');
   },
 );
 
@@ -251,6 +252,7 @@ try {
     print(Chain.forTrace(stackTrace).terse);
   }
 }
+await cancelfuture;
 ```
 
 It'll be taken out:
@@ -272,15 +274,17 @@ main finally
 result: null
 result: canceled
 exception: [AsyncCancelException] Async operation canceled
+--- really canceled ---
 ```
 
 As you can see, `cancel` doesn't work immediately. Unlike `yield`, which can be
-interrupted both before and after calculating values, `await` can be
-interrupted only before the code enters the event loop. But not everything that
-starts with `await` really gets there. The function tries to execute
-synchronously as much as possible. `Future.value` and `Future.sync` return the
-result synchronously. `Future.microtask` is executed outside the event loop.
-Therefore, to cancel the code after `cancel`, we have to find the `await` where
-we can interrupt the code execution.
+interrupted after calculating value, `await` can be interrupted only before the
+code enters the event loop. But not everything that starts with `await` really
+gets there. The function tries to execute synchronously as much as possible.
+`Future.value` and `Future.sync` return the result synchronously.
+`Future.microtask` is executed outside the event loop. Therefore, to cancel the
+code after `cancel`, we have to find the `await` where we can interrupt the
+code execution. `await cancel()` will help you wait for `CancelableFuture` to
+really interrupt.
 
 See the `/example` and `/test` folders for other examples of usage.

@@ -1,6 +1,6 @@
 name: cancelable_future
 description: Exploring the possibility of adding a cancelable future.
-version: 0.2.2
+version: 0.3.0
 repository: https://github.com/vi-k/cancelable_future
 
 environment:
@@ -11,6 +11,5 @@ dependencies:
 
 dev_dependencies:
   lints: ^3.0.0
-  stack_trace: ^1.11.1
   test: ^1.24.0
   vm_service: ^14.0.0

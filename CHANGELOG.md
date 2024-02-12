@@ -9,10 +9,6 @@
 - The previous version had a limitation: the `finally` block was not executed
   after canceling. Fix it.
 
-## 0.2.1
+## 0.3.0
 
-- Fix README.md.
-
-## 0.2.2
-
-- Fix README.md.
+- Change `void cancel()` to `Future<void> cancel()`.

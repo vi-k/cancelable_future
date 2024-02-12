@@ -1,15 +1,9 @@
 import 'dart:async';
 
 import 'package:cancelable_future/cancelable_future.dart';
-import 'package:stack_trace/stack_trace.dart';
-
-import '../test/gc.dart';
-
-// const printStackTrace = true;
-const printStackTrace = false;
 
 Future<void> main() async {
-  await Chain.capture(cancelableFutureTest);
+  await cancelableFutureTest();
 }
 
 Future<void> someOperation(int i) async {
@@ -76,13 +70,14 @@ Future<void> cancelableFutureTest() async {
   // operation 2 25%
   // operation 2 50%
   // --- cancel ---
-  // operation 2 75%     <- nearest Future
+  // operation 2 75%     <- nearest breakpoint
   // operation 2 finally
   // operations finally
   // main finally
   // result: null
   // result: canceled
   // exception: [AsyncCancelException] Async operation canceled
+  // --- really canceled ---
   print('\nExample 1. Cancel by timer');
   final f1 = CancelableFuture(() async {
     try {
@@ -94,11 +89,12 @@ Future<void> cancelableFutureTest() async {
     }
   });
 
-  Future<void>.delayed(
+  final cancelfuture = Future<void>.delayed(
     const Duration(milliseconds: 650),
-    () {
+    () async {
       print('--- cancel ---');
-      f1.cancel();
+      await f1.cancel();
+      print('--- really canceled ---');
     },
   );
 
@@ -106,12 +102,10 @@ Future<void> cancelableFutureTest() async {
   print('result: ${await f1.onCancel(() => 'canceled')}');
   try {
     print(await f1);
-  } on AsyncCancelException catch (error, stackTrace) {
+  } on AsyncCancelException catch (error) {
     print('exception: [${error.runtimeType}] $error');
-    if (printStackTrace) {
-      print(Chain.forTrace(stackTrace).terse);
-    }
   }
+  await cancelfuture; // Will really be canceled much later.
 
   // Example 2:
   // Cancel by timeout.
@@ -125,7 +119,7 @@ Future<void> cancelableFutureTest() async {
   // operation 1 100%
   // operation 1 finally
   // operation 2         <- function - don't stop, do the synchronized part
-  // operation 2 0%      <- nearest Future
+  // operation 2 0%      <- nearest breakpoint
   // operation 2 finally
   // operations finally
   // main finally
@@ -158,11 +152,8 @@ Future<void> cancelableFutureTest() async {
   print('result: ${await f2.onCancel(() => 'canceled')}');
   try {
     print(await f2);
-  } on AsyncCancelException catch (error, stackTrace) {
+  } on AsyncCancelException catch (error) {
     print('exception: [${error.runtimeType}] $error');
-    if (printStackTrace) {
-      print(Chain.forTrace(stackTrace).terse);
-    }
   }
 
   // Example 3:
@@ -209,12 +200,7 @@ Future<void> cancelableFutureTest() async {
 
   try {
     await f3;
-  } on AsyncCancelException catch (error, stackTrace) {
+  } on AsyncCancelException catch (error) {
     print('exception: [${error.runtimeType}] $error');
-    if (printStackTrace) {
-      print(Chain.forTrace(stackTrace).terse);
-    }
   }
-
-  await gc();
 }
