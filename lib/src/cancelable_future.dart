@@ -71,13 +71,17 @@ final class CancelableFuture<T> implements Future<T> {
       },
     );
 
-    runZonedGuarded(zoneSpecification: zoneSpecification, () {
-      _future = computation();
-    }, (error, stack) {
-      if (error is! _InnerAsyncCancelException) {
-        Error.throwWithStackTrace(error, stack);
-      }
-    });
+    runZonedGuarded(
+      zoneSpecification: zoneSpecification,
+      () {
+        _future = computation();
+      },
+      (error, stack) {
+        if (error is! _InnerAsyncCancelException) {
+          Error.throwWithStackTrace(error, stack);
+        }
+      },
+    );
   }
 
   @visibleForTesting
@@ -111,10 +115,7 @@ final class CancelableFuture<T> implements Future<T> {
       }
       _timers.clear();
 
-      await _breakFuture(
-        token: token,
-        stackTrace: stackTrace,
-      );
+      await _breakFuture(token: token, stackTrace: stackTrace);
     }
   }
 
@@ -149,13 +150,10 @@ final class CancelableFuture<T> implements Future<T> {
       return Completer<T>().future.then(onValue); // never completer
     }
 
-    return _future.then(
-      (value) {
-        _onErrorCallbacks.remove(onError);
-        return onValue(value);
-      },
-      onError: onError,
-    );
+    return _future.then((value) {
+      _onErrorCallbacks.remove(onError);
+      return onValue(value);
+    }, onError: onError);
   }
 
   @override
@@ -171,28 +169,25 @@ final class CancelableFuture<T> implements Future<T> {
     final completer = Completer<T>();
     void Function()? completerCallback;
 
-    final timer = Timer(
-      timeLimit,
-      () {
-        _log('timeout');
+    final timer = Timer(timeLimit, () {
+      _log('timeout');
 
-        final token = AsyncCancelByTimeoutException(timeLimit);
+      final token = AsyncCancelByTimeoutException(timeLimit);
 
-        if (onTimeout != null) {
-          try {
-            final result = onTimeout();
-            completerCallback = () => completer.complete(result);
-          } on Object catch (e, s) {
-            completerCallback = () => completer.completeError(e, s);
-          }
-        } else {
-          completerCallback =
-              () => completer.completeError(token, StackTrace.current);
+      if (onTimeout != null) {
+        try {
+          final result = onTimeout();
+          completerCallback = () => completer.complete(result);
+        } on Object catch (e, s) {
+          completerCallback = () => completer.completeError(e, s);
         }
+      } else {
+        completerCallback =
+            () => completer.completeError(token, StackTrace.current);
+      }
 
-        cancel(token: token);
-      },
-    );
+      cancel(token: token);
+    });
 
     then<void>(
       (value) {
@@ -237,10 +232,7 @@ final class CancelableFuture<T> implements Future<T> {
   Stream<T> asStream() => _future.asStream();
 
   @override
-  Future<T> catchError(
-    Function onError, {
-    bool Function(Object error)? test,
-  }) =>
+  Future<T> catchError(Function onError, {bool Function(Object error)? test}) =>
       _future.catchError(onError, test: test);
 
   @override

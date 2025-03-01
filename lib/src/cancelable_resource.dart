@@ -20,8 +20,7 @@ final class CancelableResource<T> {
       print('finalize resource @${value.hashCode}');
       onDispose(value);
       _finalizers.remove(value);
-    })
-      ..attach(resource, value, detach: resource);
+    })..attach(resource, value, detach: resource);
     _finalizers[value] = finalizer;
 
     return resource;

@@ -1,7 +1,8 @@
-## 0.4.0
+## 0.4.0-0.4.1
 
 - Upgrade sdk version and dependecines.
 - Fix README.md.
+- Format the code with a new formatter.
 
 ## 0.3.0
 
