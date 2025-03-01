@@ -143,12 +143,12 @@ CancelableFuture<SomeClass> f() async cancelable {
 
 And in this case, the developer will have to be aware that the code may be
 interrupted not only at `await someFuture1`, `await someFuture2` or
-`await someFuture3`, but also at `await someOperation`. And then `resource1`
-will never be disposed, there will be a resource leak. This is a developer's
-mistake, but by the phrase `async cancelable` he signed a contract that he is
-responsible for his mistakes. But if the developer writes normal `async` code,
-he didn't sign up for this behavior - his code should definitely complete and
-`resource1` should be disposed of.
+`await someFuture3`, but also at `await safeAsyncCodeWhereNoExceptionsAreExpected`.
+And then `resource1` will never be disposed, there will be a resource leak.
+This is a developer's mistake, but by the phrase `async cancelable` he signed
+a contract that he is responsible for his mistakes. But if the developer writes
+normal `async` code, he didn't sign up for this behavior - his code should
+definitely complete and `resource1` should be disposed of.
 
 Read about the issue of creating a cancelable future here:
 <https://github.com/dart-lang/sdk/issues/1806>
@@ -233,7 +233,7 @@ final f = CancelableFuture(() async {
 });
 
 final cancelfuture = Future<void>.delayed(
-  const Duration(milliseconds: 650),
+  const Duration(milliseconds: 350),
   () async {
     print('--- cancel ---');
     await f1.cancel();
@@ -268,9 +268,9 @@ operation 1 finally
 operation 2
 operation 2 0%      <- nearest breakpoint
 operation 2 finally
+result: null
 operations finally
 main finally
-result: null
 result: canceled
 exception: [AsyncCancelException] Async operation canceled
 --- really canceled ---

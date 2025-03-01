@@ -1,6 +1,6 @@
 name: cancelable_future
 description: This package academically provides an opportunity to cancel the future.
-version: 0.4.1
+version: 0.4.2
 repository: https://github.com/vi-k/cancelable_future
 
 topics:

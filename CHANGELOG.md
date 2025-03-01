@@ -1,4 +1,4 @@
-## 0.4.0-0.4.1
+## 0.4.0-0.4.2
 
 - Upgrade sdk version and dependecines.
 - Fix README.md.
