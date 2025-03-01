@@ -1,14 +1,18 @@
-# cancelable_future
+## 0.4.0
 
-## 0.1.0
+- Upgrade sdk version and dependecines.
+- Fix README.md.
 
-- Publish the first working version.
+## 0.3.0
+
+- Change `cancel()` to an async version to wait for `CancelableFuture` to
+really cancel.
 
 ## 0.2.0
 
 - The previous version had a limitation: the `finally` block was not executed
   after canceling. Fix it.
 
-## 0.3.0
+## 0.1.0
 
-- Change `void cancel()` to `Future<void> cancel()`.
+- Publish the first working version.

@@ -134,7 +134,6 @@ CancelableFuture<SomeClass> f() async cancelable {
     await someFuture3;
   } catch (e,s) {
     ...
-  }
   } finally {
     resource2.dispose();
   }
