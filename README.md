@@ -1,6 +1,7 @@
-# Attention
+## Attention
 
-**Never use this package in production. This code has only academic purpose.**
+> [!WARNING]
+> Never use this package in production. This code has only academic purpose.
 
 ## What is it?
 

@@ -1,6 +1,6 @@
 name: cancelable_future
 description: This package academically provides an opportunity to cancel the future.
-version: 0.4.2
+version: 0.4.3
 repository: https://github.com/vi-k/cancelable_future
 
 topics:
@@ -9,12 +9,12 @@ topics:
 - async
 
 environment:
-  sdk: ^3.7.0
+  sdk: ^3.9.2
 
 dependencies:
   meta: ^1.16.0
 
 dev_dependencies:
-  lints: ^5.1.1
+  lints: ^6.0.0
   test: ^1.25.15
   vm_service: ^15.0.0

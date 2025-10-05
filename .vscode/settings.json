@@ -1,5 +1,6 @@
 {
-    "dart.testAdditionalArgs": [
-        "--debug",
-    ],
+  "dart.testAdditionalArgs": [
+    "--debug"
+  ],
+  "dart.flutterSdkPath": ".fvm/versions/stable"
 }
